@@ -263,13 +263,27 @@ jobs:
 
       - name: Build msi
         if: env.UPLOAD_ARTIFACT == 'true'
+        shell: pwsh
         run: |
           pushd ./res/msi
           python preprocess.py --arp -d ../../rustdesk
           nuget restore msi.sln
           msbuild msi.sln -p:Configuration=Release -p:Platform=x64 /p:TargetVersion=Windows10
-          mv ./Package/bin/x64/Release/en-us/Package.msi ../../SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi
-          sha256sum ../../SignOutput/rustdesk-*.msi
+          $releaseDir = "./Package/bin/x64/Release"
+          $msiFiles = Get-ChildItem -Path $releaseDir -Recurse -Filter "*.msi"
+          if ($msiFiles.Count -eq 0) {
+            Write-Error "No .msi file found under $releaseDir. Directory listing:"
+            Get-ChildItem -Path $releaseDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+          if ($msiFiles.Count -gt 1) {
+            Write-Warning "Multiple .msi files found; using the first one: $($msiFiles[0].FullName)"
+          }
+          $msiSrc = $msiFiles[0].FullName
+          New-Item -ItemType Directory -Force -Path "../../SignOutput" | Out-Null
+          $msiDest = "../../SignOutput/rustdesk-${{ env.VERSION }}-${{ matrix.job.arch }}.msi"
+          Move-Item -Path $msiSrc -Destination $msiDest
+          Get-FileHash $msiDest -Algorithm SHA256
 
       - name: Sign rustdesk self-extracted file
         if: env.UPLOAD_ARTIFACT == 'true' && env.SIGN_BASE_URL != '-2'

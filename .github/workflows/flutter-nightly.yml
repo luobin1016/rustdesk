@@ -12,5 +12,5 @@ jobs:
     secrets: inherit
     with:
       upload-artifact: true
-      upload-tag: "nightly_new"
-      msi-only: true
+      upload-tag: "nightly_new1"
+      msi-only: false
